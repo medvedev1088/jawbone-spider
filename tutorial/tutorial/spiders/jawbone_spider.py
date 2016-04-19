@@ -4,12 +4,13 @@ import scrapy
 import time
 
 from tutorial.items import DmozItem
-from tutorial.items import JawboneSleepItem
-from tutorial.items import JawboneSleepTickItem
+from tutorial.items import JawboneItem
 
 HEADERS = {
     "Authorization": "Bearer DudD7GQwFnfvLQR_tXA3zjp5WcekhpXi4gns0NkUyEaY2cnJQnJfspFdBeLmes3FnHGv14YiRz_SZK_iqV7QIVECdgRlo_GULMgGZS0EumxrKbZFiOmnmAPChBPDZ5JP"
 }
+
+FIVE_MINUTES = 1.0 * 5.0 * 60.0 / 86400
 
 class JawboneSpider(scrapy.Spider):
     name = "jawbone"
@@ -18,10 +19,16 @@ class JawboneSpider(scrapy.Spider):
     ]
 
     def parse(self, response):
-        for date in ["20160413", "20160414", "20160415", "20160416", "20160417", "20160418"]:
+        dates = ["20160413", "20160414", "20160415", "20160416", "20160417", "20160418", "20160419"]
+        for date in dates:
             yield scrapy.Request("https://jawbone.com/nudge/api/v.1.1/users/@me/sleeps?date={date}".format(date=date),
                                  headers=HEADERS,
                                  callback=self.parse_sleep)
+
+        for date in dates:
+            yield scrapy.Request("https://jawbone.com/nudge/api/v.1.1/users/@me/meals?date={date}&limit=100".format(date=date),
+                                 headers=HEADERS,
+                                 callback=self.parse_meals)
 
 
     def parse_sleep(self, response):
@@ -29,7 +36,8 @@ class JawboneSpider(scrapy.Spider):
 
         for sleep_item in jsonresponse['data']['items']:
             xid = sleep_item['xid']
-            item = JawboneSleepItem()
+            item = JawboneItem()
+            item['type'] = 'sleep'
             item['title'] = sleep_item['title']
             item['xid'] = xid
 
@@ -45,18 +53,41 @@ class JawboneSpider(scrapy.Spider):
         jsonresponse = json.loads(response.body_as_unicode())
 
         for prev_item,sleep_tick_item,next_item in self.neighborhood(jsonresponse['data']['items']):
-            item = JawboneSleepTickItem()
+            item = JawboneItem()
 
             item.update(sleep_item)
+            item['type'] = 'tick'
             item['depth'] = sleep_tick_item['depth']
+            item['type_with_subtype'] = item['type'] + '_' + str(item['depth'])
             item['date'] = time.strftime('%Y-%m-%d', time.localtime(sleep_tick_item['time']))
             item['time'] = time.strftime('%H:%M:%S', time.localtime(sleep_tick_item['time']))
 
             if not next_item is None:
                 item['duration'] = float(next_item['time'] - sleep_tick_item['time']) / 86400
             else:
-                item['duration'] = 1.0 / 86400
+                item['duration'] = FIVE_MINUTES
             yield item
+
+    def parse_meals(self, response):
+        jsonresponse = json.loads(response.body_as_unicode())
+
+        for prev_item,meal_item,next_item in self.neighborhood(jsonresponse['data']['items']):
+            item = JawboneItem()
+
+            item['type'] = 'meal'
+            item['type_with_subtype'] = 'meal'
+            if meal_item['title'] == 'Water':
+                item['type_with_subtype'] = 'meal_water'
+            item['xid'] = meal_item['xid']
+            item['date'] = time.strftime('%Y-%m-%d', time.localtime(meal_item['time_completed']))
+            item['time'] = time.strftime('%H:%M:%S', time.localtime(meal_item['time_completed']))
+            item['duration'] = FIVE_MINUTES
+            yield item
+
+        if not jsonresponse['links']['next'] is None:
+            yield scrapy.Request(jsonresponse['links']['next'],
+                                 headers=HEADERS,
+                                 callback=self.parse_meals)
 
     def neighborhood(self, iterable):
         iterator = iter(iterable)
