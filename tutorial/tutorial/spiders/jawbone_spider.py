@@ -78,6 +78,7 @@ class JawboneSpider(scrapy.Spider):
             item['type_with_subtype'] = 'meal'
             if meal_item['title'] == 'Water':
                 item['type_with_subtype'] = 'meal_water'
+            item['title'] = meal_item['title']
             item['xid'] = meal_item['xid']
             item['date'] = time.strftime('%Y-%m-%d', time.localtime(meal_item['time_completed']))
             item['time'] = time.strftime('%H:%M:%S', time.localtime(meal_item['time_completed']))
