@@ -1,5 +1,8 @@
 import json
 
+import datetime
+import logging
+
 import scrapy
 import time
 
@@ -19,7 +22,18 @@ class JawboneSpider(scrapy.Spider):
     ]
 
     def parse(self, response):
-        dates = ["20160413", "20160414", "20160415", "20160416", "20160417", "20160418", "20160419"]
+        logging.info("This is a warning")
+        start_date = datetime.datetime.strptime('20160413', "%d%m%Y").date()
+        end_date = datetime.date.today()
+
+        current_date = start_date
+        dates = [time.strftime('%Y%m%d', time.localtime(current_date))]
+        while current_date < end_date:
+            current_date = current_date + datetime.timedelta(days=1)
+            dates.append(time.strftime('%Y%m%d', time.localtime(current_date)))
+
+        print "Crawling data for: " + str(dates)
+
         for date in dates:
             yield scrapy.Request("https://jawbone.com/nudge/api/v.1.1/users/@me/sleeps?date={date}".format(date=date),
                                  headers=HEADERS,
