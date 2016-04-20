@@ -6,11 +6,10 @@ import logging
 import scrapy
 import time
 
-from tutorial.items import DmozItem
 from tutorial.items import JawboneItem
 
 HEADERS = {
-    "Authorization": "Bearer DudD7GQwFnfvLQR_tXA3zjp5WcekhpXi4gns0NkUyEaY2cnJQnJfspFdBeLmes3FnHGv14YiRz_SZK_iqV7QIVECdgRlo_GULMgGZS0EumxrKbZFiOmnmAPChBPDZ5JP"
+    "Authorization": "Bearer {put you access token here}"
 }
 
 FIVE_MINUTES = 1.0 * 5.0 * 60.0 / 86400
@@ -18,21 +17,18 @@ FIVE_MINUTES = 1.0 * 5.0 * 60.0 / 86400
 class JawboneSpider(scrapy.Spider):
     name = "jawbone"
     start_urls = [
-        "https://google.com/"
+        "http://google.com/"
     ]
 
     def parse(self, response):
-        logging.info("This is a warning")
-        start_date = datetime.datetime.strptime('20160413', "%d%m%Y").date()
+        start_date = datetime.datetime.strptime('20160413', "%Y%m%d").date()
         end_date = datetime.date.today()
 
-        current_date = start_date
-        dates = [time.strftime('%Y%m%d', time.localtime(current_date))]
-        while current_date < end_date:
-            current_date = current_date + datetime.timedelta(days=1)
-            dates.append(time.strftime('%Y%m%d', time.localtime(current_date)))
-
-        print "Crawling data for: " + str(dates)
+        running_date = start_date
+        dates = [running_date.strftime('%Y%m%d')]
+        while running_date < end_date:
+            running_date = running_date + datetime.timedelta(days=1)
+            dates.append(running_date.strftime('%Y%m%d'))
 
         for date in dates:
             yield scrapy.Request("https://jawbone.com/nudge/api/v.1.1/users/@me/sleeps?date={date}".format(date=date),
