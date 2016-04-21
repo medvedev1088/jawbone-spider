@@ -9,10 +9,11 @@ import time
 from tutorial.items import JawboneItem
 
 HEADERS = {
-    "Authorization": "Bearer {put you access token here}"
+    "Authorization": "Bearer DudD7GQwFnfvLQR_tXA3zjp5WcekhpXi4gns0NkUyEaY2cnJQnJfspFdBeLmes3FnHGv14YiRz_SZK_iqV7QIVECdgRlo_GULMgGZS0EumxrKbZFiOmnmAPChBPDZ5JP"
 }
 
-FIVE_MINUTES = 1.0 * 5.0 * 60.0 / 86400
+SECONDS_IN_DAY = 86400
+FIVE_MINUTES = 1.0 * 5.0 * 60.0 / SECONDS_IN_DAY
 
 class JawboneSpider(scrapy.Spider):
     name = "jawbone"
@@ -39,6 +40,11 @@ class JawboneSpider(scrapy.Spider):
             yield scrapy.Request("https://jawbone.com/nudge/api/v.1.1/users/@me/meals?date={date}&limit=100".format(date=date),
                                  headers=HEADERS,
                                  callback=self.parse_meals)
+
+        for date in dates:
+            yield scrapy.Request("https://jawbone.com/nudge/api/v.1.1/users/@me/workouts?date={date}&limit=100".format(date=date),
+                                 headers=HEADERS,
+                                 callback=self.parse_workouts)
 
 
     def parse_sleep(self, response):
@@ -73,7 +79,7 @@ class JawboneSpider(scrapy.Spider):
             item['time'] = time.strftime('%H:%M:%S', time.localtime(sleep_tick_item['time']))
 
             if not next_item is None:
-                item['duration'] = float(next_item['time'] - sleep_tick_item['time']) / 86400
+                item['duration'] = float(next_item['time'] - sleep_tick_item['time']) / SECONDS_IN_DAY
             else:
                 item['duration'] = FIVE_MINUTES
             yield item
@@ -95,10 +101,23 @@ class JawboneSpider(scrapy.Spider):
             item['duration'] = FIVE_MINUTES
             yield item
 
-        if not jsonresponse['links']['next'] is None:
-            yield scrapy.Request(jsonresponse['links']['next'],
-                                 headers=HEADERS,
-                                 callback=self.parse_meals)
+    def parse_workouts(self, response):
+        jsonresponse = json.loads(response.body_as_unicode())
+
+        for prev_item,workout_item,next_item in self.neighborhood(jsonresponse['data']['items']):
+            item = JawboneItem()
+
+            item['type'] = 'workout'
+            item['type_with_subtype'] = 'workout'
+            if workout_item['sub_type'] == 3:
+                item['type_with_subtype'] = 'workout_weights'
+            item['title'] = workout_item['title']
+            item['xid'] = workout_item['xid']
+            workout_started = workout_item['time_created']
+            item['date'] = time.strftime('%Y-%m-%d', time.localtime(workout_started))
+            item['time'] = time.strftime('%H:%M:%S', time.localtime(workout_started))
+            item['duration'] = float(workout_item['time_completed'] - workout_item['time_created']) / SECONDS_IN_DAY
+            yield item
 
     def neighborhood(self, iterable):
         iterator = iter(iterable)
