@@ -16,4 +16,10 @@ class JawboneItem(scrapy.Item):
     duration = scrapy.Field()
     title = scrapy.Field()
     depth = scrapy.Field()
+    distance = scrapy.Field()
+    sleep_duration = scrapy.Field()
+    sleep_bedtime = scrapy.Field()
+    sleep_quality = scrapy.Field()
+
+
 
